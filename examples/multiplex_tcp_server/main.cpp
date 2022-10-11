@@ -48,7 +48,7 @@ void SigHupHandler(int sig) {
 int GetServerSocket(const std::string_view ipAddr, const unsigned short port) {
     const auto sock = socket(PF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
-        throw  std::runtime_error("Can`t create dgram socket");
+        throw  std::runtime_error("Can`t create socket");
     }
 
     struct sockaddr_in socketAddr;
