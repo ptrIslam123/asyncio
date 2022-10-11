@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(simple_tcp_server)
+project(multiplex_tcp_server)
 
 add_executable(${PROJECT_NAME} main.cpp)
 
