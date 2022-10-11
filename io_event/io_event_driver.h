@@ -8,6 +8,11 @@ enum class Event {
     Write
 };
 
+enum class DescriptorStatus {
+    Open,
+    Close
+};
+
 template<typename Functor>
 class IOEventDriver {
 public:

@@ -6,6 +6,8 @@
 #include <stdexcept>
 #include <mutex>
 #include <atomic>
+#include <sstream>
+#include <unistd.h>
 
 #include "io_event_driver.h"
 
@@ -35,6 +37,7 @@ public:
     using Callback = typename IOEventDriver<Functor>::Callback;
 
     explicit IOEventPoll(size_t size);
+    ~IOEventPoll();
     void subscribe(int fd, Event event, const Callback &callback) override;
     void unsubscribe(int fd) override;
     void eventLoop() override;
@@ -121,7 +124,9 @@ void IOEventPoll<Functor, Mutex>::handleReadyFd(size_t readyFdCount) {
         const auto &curSession = sessions_[i];
         auto callback = curSession.second;
         if (curPollFd.revents == curSession.first.events) {
-            callback(curPollFd.fd);
+            if (callback(curPollFd.fd) == DescriptorStatus::Close) {
+                unsubscribe(curPollFd.fd);
+            }
             --readyFdCount;
         }
     }
@@ -130,6 +135,17 @@ void IOEventPoll<Functor, Mutex>::handleReadyFd(size_t readyFdCount) {
 template<typename Functor, typename Mutex>
 void IOEventPoll<Functor, Mutex>::stopEventLoop() {
     isStoped_.store(true);
+}
+
+template<typename Functor, typename Mutex>
+IOEventPoll<Functor, Mutex>::~IOEventPoll() {
+    std::for_each(fdSet_.cbegin(), fdSet_.cend(), [](const auto &pollFdItem){
+        if (close(pollFdItem.fd) < 0) {
+            std::stringstream os;
+            os << "Can`t close file descriptor with number: " << pollFdItem.fd;
+            throw std::runtime_error(os.str());
+        }
+    });
 }
 
 } // namespace io_event
