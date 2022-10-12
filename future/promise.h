@@ -14,10 +14,11 @@ public:
 
     class Future {
     public:
+        explicit Future();
         Future(Future &&other)  noexcept;
         Future &operator=(Future &&other) noexcept;
-        Future(const Future &other) = delete;
-        Future &operator=(const Future &other) = delete;
+        Future(const Future &other);
+        Future &operator=(const Future &other);
         bool isReady() const;
         Value getValue();
 
@@ -30,8 +31,8 @@ public:
     Promise();
     Promise(Promise &&other) noexcept;
     Promise &operator=(Promise &&other) noexcept;
-    Promise(const Promise &other) = delete;
-    Promise &operator=(const Promise &other) = delete;
+    Promise(const Promise &other);
+    Promise &operator=(const Promise &other);
     Future getFuture() const;
     void setValue(const Value &value);
     void setValue(Value &&value);
@@ -46,30 +47,50 @@ Promise<Ret>::Future::Future(SharedState sharedState):
 sharedState_(sharedState) {
 }
 
-template<typename Func>
-typename Promise<Func>::Value Promise<Func>::Future::getValue() {
+template<typename Ret>
+typename Promise<Ret>::Value Promise<Ret>::Future::getValue() {
+    if (!sharedState_) {
+        throw std::runtime_error("Attempt get access to invalid future value");
+    }
     return sharedState_->getValueIfReadyOrWait();
 }
 
-template<typename Func>
-bool Promise<Func>::Future::isReady() const {
+template<typename Ret>
+bool Promise<Ret>::Future::isReady() const {
     return sharedState_->isReady();
 }
 
-template<typename Func>
-typename Promise<Func>::Future &Promise<Func>::Future::operator=(Promise::Future &&other) noexcept {
+template<typename Ret>
+typename Promise<Ret>::Future &Promise<Ret>::Future::operator=(Promise::Future &&other) noexcept {
     sharedState_ = other.sharedState_;
     other.sharedState_ = nullptr;
+    return *this;
 }
 
-template<typename Func>
-Promise<Func>::Future::Future(Future &&other) noexcept:
+template<typename Ret>
+Promise<Ret>::Future::Future(Future &&other) noexcept:
 sharedState_(other.sharedState_){
     other.sharedState_ = nullptr;
 }
 
-template<typename Func>
-typename Promise<Func>::Future Promise<Func>::getFuture() const {
+template<typename Ret>
+Promise<Ret>::Future::Future():
+sharedState_(nullptr) {
+}
+
+template<typename Ret>
+Promise<Ret>::Future::Future(const Promise::Future &other):
+sharedState_(other.sharedState_) {
+}
+
+template<typename Ret>
+typename Promise<Ret>::Future &Promise<Ret>::Future::operator=(const Promise::Future &other) {
+    sharedState_ = other.sharedState_;
+    return *this;
+}
+
+    template<typename Ret>
+typename Promise<Ret>::Future Promise<Ret>::getFuture() const {
     ++futureCounter_;
     if (futureCounter_ > 1U) {
         throw std::runtime_error("Attempt get future from promise more than once");
@@ -77,32 +98,43 @@ typename Promise<Func>::Future Promise<Func>::getFuture() const {
     return Future(sharedState_);
 }
 
-template<typename Func>
-void Promise<Func>::setValue(const Promise::Value &value) {
+template<typename Ret>
+void Promise<Ret>::setValue(const Promise::Value &value) {
     sharedState_->setValue(value);
 }
 
-template<typename Func>
-void Promise<Func>::setValue(Promise::Value &&value) {
+template<typename Ret>
+void Promise<Ret>::setValue(Promise::Value &&value) {
     sharedState_->setValue(value);
 }
 
-template<typename Func>
-Promise<Func>::Promise():
+template<typename Ret>
+Promise<Ret>::Promise():
 sharedState_(new details::SharedState<Value>()),
 futureCounter_(0U) {
 }
 
-template<typename Func>
-Promise<Func>::Promise(Promise &&other) noexcept:
+template<typename Ret>
+Promise<Ret>::Promise(Promise &&other) noexcept:
 sharedState_(other.sharedState_){
     other.sharedState_ = nullptr;
 }
 
-template<typename Func>
-Promise<Func> &Promise<Func>::operator=(Promise &&other) noexcept {
+template<typename Ret>
+Promise<Ret> &Promise<Ret>::operator=(Promise &&other) noexcept {
     sharedState_ = other.sharedState_;
     other.sharedState_ = nullptr;
+    return *this;
+}
+
+template<typename Ret>
+Promise<Ret>::Promise(const Promise &other):
+sharedState_(other.sharedState_) {
+}
+
+template<typename Ret>
+Promise<Ret> &Promise<Ret>::operator=(const Promise &other) {
+    sharedState_ = other.sharedState_;
     return *this;
 }
 

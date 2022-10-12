@@ -13,6 +13,33 @@ enum class ExecPolicy {
 };
 
 template<typename Functor, typename ... Args>
+class PackageTask {
+public:
+    using ReturnType = decltype(Functor()(Args()...));
+    using PromiseType = Promise<ReturnType>;
+    using FutureType = typename PromiseType::Future;
+
+    explicit PackageTask(const Functor &functor, const Args& ...args);
+    FutureType getFuture();
+
+private:
+    FutureType future_;
+};
+
+template<typename Functor, typename... Args>
+PackageTask<Functor, Args...>::PackageTask(const Functor &functor, const Args& ...args):
+future_() {
+    PromiseType promise;
+    future_ = std::move(promise.getFuture());
+    std::thread(std::move(functor), args ... ).detach();
+}
+
+template<typename Functor, typename... Args>
+typename PackageTask<Functor, Args...>::FutureType PackageTask<Functor, Args...>::getFuture() {
+    return std::move(future_);
+}
+
+template<typename Functor, typename ... Args>
 auto DoPromise(const ExecPolicy policy, Functor &&functor, Args&& ...args) {
     using ReturnType = decltype(Functor()(Args()...));
     Promise<ReturnType> promise;
@@ -24,14 +51,8 @@ auto DoPromise(const ExecPolicy policy, Functor &&functor, Args&& ...args) {
             return promise.getFuture();
         }
         case ExecPolicy::Async: {
-            auto future = promise.getFuture();
-            std::thread([promise = std::move(promise), functor = std::forward<Functor>(functor)]
-            (auto&& ...args) mutable {
-                promise.setValue(functor(
-                    std::forward<Args>(args) ...
-                ));
-            }, std::forward<Args>(args) ...).detach();
-            return future;
+            PackageTask<Functor, Args ...> packageTask(functor, args ...);
+            return packageTask.getFuture();
         }
         default: {
             return Promise<ReturnType>().getFuture();
