@@ -6,11 +6,10 @@
 
 namespace future {
 
-template<typename Func>
+template<typename Ret>
 class Promise {
 public:
-    using Task = Func;
-    using Value = std::result_of_t<Task&()>;
+    using Value = Ret;
     using SharedState = std::shared_ptr<details::SharedState<Value>>;
 
     class Future {
@@ -23,7 +22,7 @@ public:
         Value getValue();
 
     private:
-        friend Promise<Task>;
+        friend Promise<Value>;
         explicit Future(SharedState sharedState);
         SharedState sharedState_;
     };
@@ -42,8 +41,8 @@ private:
     mutable unsigned char futureCounter_;
 };
 
-template<typename Func>
-Promise<Func>::Future::Future(SharedState sharedState):
+template<typename Ret>
+Promise<Ret>::Future::Future(SharedState sharedState):
 sharedState_(sharedState) {
 }
 
