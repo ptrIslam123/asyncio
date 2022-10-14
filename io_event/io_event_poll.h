@@ -35,12 +35,14 @@ class IOEventPoll final : public IOEventDriver<Functor> {
 public:
     using FdSet = std::vector<pollfd>;
     using Callback = typename IOEventDriver<Functor>::Callback;
+    using Timeout = typename IOEventDriver<Functor>::Timeout;
 
-    explicit IOEventPoll(size_t size);
+    explicit IOEventPoll(size_t size, int timeout = -1);
     ~IOEventPoll();
     void subscribe(int fd, Event event, const Callback &callback) override;
     void unsubscribe(int fd) override;
     void eventLoop() override;
+    void setTimeout(const Timeout &timeout) override;
     void stopEventLoop() override;
 
 private:
@@ -54,6 +56,7 @@ private:
     Sessions sessions_;
     Mutex sessionsLock_;
     std::atomic<bool> isStoped_;
+    int timeout_;
 };
 
 template<typename Functor, typename Mutex>
@@ -97,19 +100,20 @@ void IOEventPoll<Functor, Mutex>::eventLoop() {
 }
 
 template<typename Functor, typename Mutex>
-IOEventPoll<Functor, Mutex>::IOEventPoll(const size_t size):
+IOEventPoll<Functor, Mutex>::IOEventPoll(const size_t size, const int timeout):
 IOEventDriver<Functor>(),
 fdSet_(),
 sessions_(),
 sessionsLock_(),
-isStoped_(false) {
+isStoped_(false),
+timeout_(timeout) {
     fdSet_.reserve(size);
     sessions_.reserve(size);
 }
 
 template<typename Functor, typename Mutex>
 int IOEventPoll<Functor, Mutex>::getReadyFdCount() {
-    const auto count = poll(fdSet_.data(), fdSet_.size(), -1);
+    const auto count = poll(fdSet_.data(), fdSet_.size(), timeout_);
     if (count < 0) {
         throw std::runtime_error("system call poll is failed");
     }
@@ -146,6 +150,11 @@ IOEventPoll<Functor, Mutex>::~IOEventPoll() {
             throw std::runtime_error(os.str());
         }
     });
+}
+
+template<typename Functor, typename Mutex>
+void IOEventPoll<Functor, Mutex>::setTimeout(const IOEventPoll::Timeout &timeout) {
+    timeout_ = timeout.count();
 }
 
 } // namespace io_event

@@ -1,6 +1,8 @@
 #ifndef ASYNCIO_IO_EVENT_DRIVER_H
 #define ASYNCIO_IO_EVENT_DRIVER_H
 
+#include <chrono>
+
 namespace io_event {
 
 enum class Event {
@@ -17,11 +19,13 @@ template<typename Functor>
 class IOEventDriver {
 public:
     using Callback = Functor;
+    using Timeout = std::chrono::duration<int>;
 
     virtual void subscribe(int fd, Event event, const Callback &callback) = 0;
     virtual void unsubscribe(int fd) = 0;
     virtual void eventLoop() = 0;
     virtual void stopEventLoop() = 0;
+    virtual void setTimeout(const Timeout &timeout) = 0;
     virtual ~IOEventDriver() = default;
 };
 
